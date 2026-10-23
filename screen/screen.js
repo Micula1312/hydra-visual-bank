@@ -1,6 +1,9 @@
+import {AudioEngine} from './audio-engine.js';
+import {createFx} from './fx-engine.js';
 import {patches} from '../shared/patches.js';
 const canvas=document.querySelector('#hydra'),host=document.querySelector('#three'),status=document.querySelector('#status');
 const channel=new BroadcastChannel('hydra-visual-bank-v1');
+const fx=createFx(document.body);let audioState={level:0,bass:0,mid:0,high:0},audioOn=false;const audio=new AudioEngine(v=>{audioState=v;channel.postMessage({type:'audio-level',data:v})});let mapping={enabled:false,band:'bass',target:'distortion',amount:.7};let lastAudioUpdate=0;
 let hydra,active='corrupted',params={speed:.5,feedback:.5,distortion:.3},blackout=false,disposeThree=null,customCode=null,revision=0;
 function report(message){status.style.opacity='1';status.textContent=message;setTimeout(()=>status.style.opacity='0',2500)}
 async function run(){const ticket=++revision;const patch=patches.find(p=>p.id===active)||patches[0];
@@ -14,6 +17,10 @@ function apply(msg){if(msg.type==='patch'){if(!patches.some(p=>p.id===msg.id))re
  if(msg.type==='params'){params={...params,...msg.params};if((patches.find(p=>p.id===active)?.engine||'hydra')==='hydra')run()}
  if(msg.type==='code'){if(patches.find(p=>p.id===active)?.engine!=='hydra'){report('THREE EDITOR / COMING NEXT');return}customCode=msg.code;run()}
  if(msg.type==='blackout')setBlackout(msg.value);
+ if(msg.type==='fx')fx.apply(msg.state);
+ if(msg.type==='audio-start')audio.start(msg.deviceId).then(()=>{audioOn=true;channel.postMessage({type:'audio-status',enabled:true})}).catch(e=>{audioOn=false;channel.postMessage({type:'audio-status',enabled:false,error:e.message})});
+ if(msg.type==='audio-stop')audio.stop().then(()=>{audioOn=false;channel.postMessage({type:'audio-status',enabled:false})});
+ if(msg.type==='audio-map')mapping={...mapping,...msg.mapping};
  if(msg.type==='request-state')channel.postMessage({type:'screen-state',active,params,blackout})}
 channel.onmessage=e=>apply(e.data);
 try{hydra=new Hydra({canvas,detectAudio:false,makeGlobal:true,autoLoop:true});run();channel.postMessage({type:'screen-ready',active,params})}catch(e){report('HYDRA ERROR / '+e.message)}
@@ -24,3 +31,4 @@ document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea'))re
  if(e.key==='ArrowRight'||e.key==='ArrowLeft'){const i=patches.findIndex(p=>p.id===active),d=e.key==='ArrowRight'?1:-1;apply({type:'patch',id:patches[(i+d+patches.length)%patches.length].id})}
  channel.postMessage({type:'screen-state',active,params,blackout})
 });
+setInterval(()=>{if(!audioOn||!mapping.enabled)return;const now=performance.now();if(now-lastAudioUpdate<90)return;lastAudioUpdate=now;const v=Math.max(0,Math.min(1,audioState[mapping.band]||0));params[mapping.target]=Math.max(0,Math.min(1,v*mapping.amount*3));if(patches.find(p=>p.id===active)?.engine==='hydra')run();channel.postMessage({type:'audio-param',target:mapping.target,value:params[mapping.target]})},100);
