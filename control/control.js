@@ -24,3 +24,9 @@ document.querySelector('#mic-stop').onclick=()=>send({type:'audio-stop'});
 function sendMapping(){send({type:'audio-map',mapping:{enabled:document.querySelector('#audio-enabled').checked,band:document.querySelector('#audio-band').value,target:document.querySelector('#audio-target').value,amount:Number(document.querySelector('#audio-amount').value)/100}})}
 for(const id of ['audio-enabled','audio-band','audio-target','audio-amount'])document.getElementById(id).addEventListener('input',sendMapping);
 channel.addEventListener('message',e=>{if(e.data.type==='audio-level')document.querySelector('#meter-fill').style.width=Math.round((e.data.data.level||0)*100)+'%';if(e.data.type==='audio-status')document.querySelector('#audio-status').textContent=e.data.enabled?'MICROPHONE ACTIVE':('AUDIO OFF '+(e.data.error||''))});
+
+const deviceSelect=document.querySelector('#audio-device');
+document.querySelector('#audio-refresh').onclick=()=>send({type:'audio-devices'});
+document.querySelector('#mic-start').onclick=()=>{send({type:'audio-start',deviceId:deviceSelect.value||undefined});document.querySelector('#audio-status').textContent='Select and authorize microphone in SCREEN...'};
+channel.addEventListener('message',e=>{const d=e.data;if(d.type==='audio-devices'){const previous=deviceSelect.value;deviceSelect.replaceChildren(new Option('DEFAULT MICROPHONE',''));for(const item of d.devices||[])deviceSelect.add(new Option(item.label||'Audio input '+(deviceSelect.length),item.deviceId));if([...deviceSelect.options].some(o=>o.value===previous))deviceSelect.value=previous;document.querySelector('#audio-status').textContent=(d.devices||[]).length+' audio input(s) found'+(d.error?' / '+d.error:'')}});
+send({type:'audio-devices'});
