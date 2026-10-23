@@ -18,7 +18,8 @@ function apply(msg){if(msg.type==='patch'){if(!patches.some(p=>p.id===msg.id))re
  if(msg.type==='code'){if(patches.find(p=>p.id===active)?.engine!=='hydra'){report('THREE EDITOR / COMING NEXT');return}customCode=msg.code;run()}
  if(msg.type==='blackout')setBlackout(msg.value);
  if(msg.type==='fx')fx.apply(msg.state);
- if(msg.type==='audio-start')audio.start(msg.deviceId).then(()=>{audioOn=true;channel.postMessage({type:'audio-status',enabled:true})}).catch(e=>{audioOn=false;channel.postMessage({type:'audio-status',enabled:false,error:e.message})});
+ if(msg.type==='audio-devices')navigator.mediaDevices?.enumerateDevices().then(devices=>channel.postMessage({type:'audio-devices',devices:devices.filter(d=>d.kind==='audioinput').map(d=>({deviceId:d.deviceId,label:d.label}))})).catch(e=>channel.postMessage({type:'audio-devices',devices:[],error:e.message}));
+ if(msg.type==='audio-start')audio.start(msg.deviceId).then(()=>{audioOn=true;channel.postMessage({type:'audio-status',enabled:true});apply({type:'audio-devices'})}).catch(e=>{audioOn=false;channel.postMessage({type:'audio-status',enabled:false,error:e.message})});
  if(msg.type==='audio-stop')audio.stop().then(()=>{audioOn=false;channel.postMessage({type:'audio-status',enabled:false})});
  if(msg.type==='audio-map')mapping={...mapping,...msg.mapping};
  if(msg.type==='request-state')channel.postMessage({type:'screen-state',active,params,blackout})}
